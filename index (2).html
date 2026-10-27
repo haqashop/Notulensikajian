@@ -1,0 +1,159 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Notulensi Kajian</title>
+<style>
+:root{--bg:#f6f4ee;--card:#fff;--tx:#1f2a24;--mut:#6b756e;--ac:#1d6b4f;--acb:#e3f1ea;--bd:#dcd8cc;color-scheme:light}
+@media (prefers-color-scheme:dark){:root{--bg:#141a17;--card:#1d2621;--tx:#e8ece9;--mut:#9aa69f;--ac:#5fc79b;--acb:#233a30;--bd:#2f3b35;color-scheme:dark}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--tx);font:16px/1.55 system-ui,-apple-system,"Segoe UI",sans-serif}
+main{max-width:760px;margin:0 auto;padding:18px 14px 60px}
+h1{font-size:22px;margin:4px 0}
+.sub{color:var(--mut);font-size:14px;margin:0 0 16px}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:14px;padding:14px;margin-bottom:14px}
+label{display:block;font-size:13px;font-weight:600;margin:10px 0 4px;color:var(--mut)}
+input,textarea{width:100%;padding:10px;border:1px solid var(--bd);border-radius:10px;background:var(--bg);color:var(--tx);font:inherit}
+textarea{min-height:180px;resize:vertical}
+.row{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+.inline{display:flex;gap:8px}
+@media(max-width:520px){.row{grid-template-columns:1fr}}
+button{border:0;border-radius:10px;padding:11px 16px;font:inherit;font-weight:600;cursor:pointer;background:var(--ac);color:#fff;white-space:nowrap}
+button.sec{background:var(--acb);color:var(--ac)}
+button:disabled{opacity:.5;cursor:default}
+.bar{display:flex;gap:8px;flex-wrap:wrap;margin-top:14px}
+.err{color:#b3261e;font-size:14px;margin-top:10px;white-space:pre-wrap}
+.hd{display:flex;justify-content:space-between;align-items:center;gap:8px;margin-bottom:8px}
+.hd b{color:var(--ac)}
+.cnt{font-size:12px;color:var(--mut)}
+pre{white-space:pre-wrap;word-wrap:break-word;margin:0;font:15px/1.65 system-ui,-apple-system,sans-serif;background:var(--bg);border:1px solid var(--bd);border-radius:10px;padding:12px}
+.ref{font-size:13px;color:var(--mut);margin-top:8px}
+.ref b{color:var(--tx)}
+</style>
+</head>
+<body>
+<main>
+<h1>Notulensi Kajian</h1>
+<p class="sub">Tempel link YouTube, ambil CC otomatis, lalu susun slide catatan lengkap beserta rujukan.</p>
+
+<div class="card">
+  <label for="code">Kode akses</label>
+  <input id="code" type="password" autocomplete="off">
+  <label for="url">Link YouTube</label>
+  <div class="inline"><input id="url" type="url" placeholder="https://www.youtube.com/watch?v=..."><button id="fetch" class="sec">Ambil CC</button></div>
+  <div class="row">
+    <div><label for="ch">Nama channel</label><input id="ch"></div>
+    <div><label for="ust">Nama ustadz</label><input id="ust" placeholder="mis. Abdullah Roy, M.A."></div>
+  </div>
+  <label for="jd">Judul kajian</label><input id="jd">
+  <div class="row">
+    <div><label for="tg">Tanggal upload (Masehi)</label><input id="tg" type="date"></div>
+    <div><label for="n">Jumlah slide</label><input id="n" type="number" min="1" max="40" value="20"></div>
+  </div>
+  <label for="tr">Transkrip / CC (terisi otomatis, bisa ditempel manual)</label>
+  <textarea id="tr"></textarea>
+  <div class="bar"><button id="go">Buat Catatan</button><button id="stop" class="sec" hidden>Batal</button></div>
+  <div id="st" class="cnt" style="margin-top:8px"></div>
+  <div id="er" class="err"></div>
+</div>
+
+<div id="out"></div>
+<div class="bar" id="acts" hidden>
+  <button id="cpall" class="sec">Salin semua</button>
+  <button id="dl" class="sec">Unduh .md</button>
+</div>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const HON='حَفِظَهُ الله تعالى';
+let result=[], ctl=null;
+try{$('code').value=localStorage.getItem('code')||''}catch(e){}
+
+const hdr=()=>{const c=$('code').value;try{localStorage.setItem('code',c)}catch(e){}return {'x-access-code':c}};
+const hijri=d=>{if(!d)return'';try{return new Intl.DateTimeFormat('id-ID-u-ca-islamic-civil',{day:'numeric',month:'long',year:'numeric'}).format(new Date(d+'T12:00:00'))}catch(e){return''}};
+const masehi=d=>d?new Date(d+'T12:00:00').toLocaleDateString('id-ID',{day:'numeric',month:'long',year:'numeric'}):'';
+const meta=()=>({url:$('url').value.trim(),ch:$('ch').value.trim()||'[nama channel youtube]',ust:$('ust').value.trim()||'[nama ustadz]',jd:$('jd').value.trim()||'[judul kajian]',tg:$('tg').value});
+const smallFooter=m=>`Faedah Kajian ${m.jd} oleh Ustadz ${m.ust} ${HON}`;
+const finalFooter=m=>`Wallahu a’lam bisshawab\nBarakallahu fiikum\n\n\nSimak Kajian lengkapnya di youtube\nChannel: ${m.ch}\nJudul: ${m.jd} - Ustadz ${m.ust} ${HON}\nTanggal: ${m.tg?hijri(m.tg)+' / '+masehi(m.tg):'[tanggal hijriyah] / [tanggal masehi]'}`;
+const slideText=(s,i,t,m)=>`#${i+1} ${s.title}\n\n${s.body.trim()}\n\n`+(i===t-1?finalFooter(m)+'\n\n':'')+smallFooter(m);
+function el(t,c,x){const e=document.createElement(t);if(c)e.className=c;if(x!=null)e.textContent=x;return e}
+function copyBtn(get){const b=el('button','sec','Salin');b.onclick=async()=>{try{await navigator.clipboard.writeText(get());b.textContent='Tersalin ✓'}catch(e){b.textContent='Gagal'}setTimeout(()=>b.textContent='Salin',1500)};return b}
+
+$('fetch').onclick=async()=>{
+  $('er').textContent='';
+  const u=$('url').value.trim();
+  if(!u){$('er').textContent='Isi link YouTube dulu.';return}
+  $('fetch').disabled=true;$('st').textContent='Mengambil CC…';
+  try{
+    const r=await fetch('/api/transcript?url='+encodeURIComponent(u),{headers:hdr()});
+    const d=await r.json();
+    if(d.error==='no_captions'){$('er').textContent='Maaf, video ini tidak memiliki CC/Subtitle sehingga tidak dapat diproses.';$('tr').value='';$('st').textContent='';return}
+    if(!r.ok)throw new Error(d.error||'Gagal');
+    $('jd').value=d.title;$('ch').value=d.channel;$('tg').value=d.uploadDate;$('tr').value=d.text;
+    $('st').textContent=`CC diambil (${d.lang}${d.auto?', otomatis':''}): ${d.text.length.toLocaleString('id')} karakter. Isi nama ustadz lalu klik Buat Catatan.`;
+  }catch(e){
+    $('er').textContent=e.message+'\nJika CC gagal diambil otomatis, tempel transkrip secara manual.';$('st').textContent='';
+  }finally{$('fetch').disabled=false}
+};
+
+function render(data,m){
+  const out=$('out');out.innerHTML='';
+  const total=data.slides.length;
+  result=data.slides.map((s,i)=>slideText(s,i,total,m));
+  data.slides.forEach((s,i)=>{
+    const c=el('div','card'),hd=el('div','hd');
+    hd.append(el('b',null,`Slide ${i+1}/${total}`));
+    const r=el('div');r.append(el('span','cnt',s.body.length+' karakter  '));r.append(copyBtn(()=>result[i]));
+    hd.append(r);c.append(hd,el('pre',null,result[i]));
+    if(s.refs&&s.refs.length){const rf=el('div','ref');rf.append(el('b',null,'Rujukan: '),document.createTextNode(s.refs.join(' • ')));c.append(rf)}
+    out.append(c);
+  });
+  const cap=`${data.caption}\n\nSumber video: ${m.url||'-'}`;
+  result.push(cap);
+  const c=el('div','card'),hd=el('div','hd');
+  hd.append(el('b',null,'Caption & Sumber'),copyBtn(()=>cap));c.append(hd,el('pre',null,cap));out.append(c);
+  const all=[...new Set(data.slides.flatMap(s=>s.refs||[]))];
+  if(all.length){const rc=el('div','card');rc.append(el('b',null,'Daftar rujukan keseluruhan'));const ul=el('ul');all.forEach(x=>ul.append(el('li',null,x)));rc.append(ul);out.append(rc)}
+  $('acts').hidden=false;
+}
+function parse(t){t=t.replace(/^```(?:json)?/i,'').replace(/```\s*$/,'').trim();return JSON.parse(t.slice(t.indexOf('{'),t.lastIndexOf('}')+1))}
+
+$('go').onclick=async()=>{
+  $('er').textContent='';
+  const tr=$('tr').value.trim();
+  if(tr.length<300){$('er').textContent='Maaf, transkrip kosong atau terlalu pendek. Jika video tidak memiliki CC/Subtitle, tidak dapat diproses.';return}
+  const m=meta();
+  $('go').disabled=true;$('stop').hidden=false;$('acts').hidden=true;
+  ctl=new AbortController();
+  let text='',stop='';
+  try{
+    const r=await fetch('/api/generate',{method:'POST',signal:ctl.signal,headers:{...hdr(),'content-type':'application/json'},
+      body:JSON.stringify({transcript:tr,n:parseInt($('n').value)||20,title:m.jd,ustadz:m.ust,channel:m.ch})});
+    if(!r.ok){let e;try{e=(await r.json()).error}catch(_){}throw new Error(e||'Gagal ('+r.status+')')}
+    const rd=r.body.getReader(),dec=new TextDecoder();let buf='';
+    for(;;){
+      const {done,value}=await rd.read();if(done)break;
+      buf+=dec.decode(value,{stream:true});
+      const parts=buf.split('\n\n');buf=parts.pop();
+      for(const p of parts){
+        const line=p.split('\n').find(l=>l.startsWith('data: '));if(!line)continue;
+        try{const ev=JSON.parse(line.slice(6));
+          if(ev.type==='content_block_delta'&&ev.delta?.type==='text_delta'){text+=ev.delta.text;$('st').textContent='Menulis… '+text.length.toLocaleString('id')+' karakter'}
+          if(ev.type==='message_delta'&&ev.delta?.stop_reason)stop=ev.delta.stop_reason;
+          if(ev.type==='error')throw new Error(ev.error?.message||'Error dari Claude');
+        }catch(e){if(e.message&&!(e instanceof SyntaxError))throw e}
+      }
+    }
+    let d;try{d=parse(text)}catch(e){throw new Error('Hasil tidak terbaca'+(stop==='max_tokens'?' (output terpotong; kurangi jumlah slide)':'')+'.')}
+    render(d,m);$('st').textContent=`Selesai: ${d.slides.length} slide.`;
+  }catch(e){$('er').textContent=e.name==='AbortError'?'Dibatalkan.':e.message;$('st').textContent=''}
+  finally{$('go').disabled=false;$('stop').hidden=true}
+};
+$('stop').onclick=()=>ctl&&ctl.abort();
+$('cpall').onclick=async()=>{try{await navigator.clipboard.writeText(result.join('\n\n---\n\n'));$('cpall').textContent='Tersalin ✓'}catch(e){}setTimeout(()=>$('cpall').textContent='Salin semua',1500)};
+$('dl').onclick=()=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([result.join('\n\n---\n\n')],{type:'text/markdown'}));a.download='notulensi-kajian.md';a.click()};
+</script>
+</body>
+</html>
